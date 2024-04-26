@@ -132,6 +132,16 @@ private:
      */
     void MoveTask(void *arg);
     
+    /**
+     * @brief envoie du niveau de batterie
+     */
+    
+    void EnvoieBatterieTask(void *arg);
+    
+    /**
+     * @param queue
+     * @param msg
+     */
     /**********************************************************************/
     /* Queue services                                                     */
     /**********************************************************************/
