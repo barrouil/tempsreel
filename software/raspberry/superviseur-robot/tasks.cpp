@@ -26,6 +26,7 @@
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
+#define PRIORITY_TSBAT 19
 
 /*
  * Some remarks:
@@ -50,6 +51,8 @@
  * @brief Initialisation des structures de l'application (tâches, mutex, 
  * semaphore, etc.)
  */
+int getbat=0;
+
 void Tasks::Init() {
     int status;
     int err;
@@ -123,6 +126,10 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_create(&th_Sbat, "th_Sbat", 0, PRIORITY_TSBAT, 0)) {
+        cerr << "Error task create: 0" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Tasks created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -165,6 +172,10 @@ void Tasks::Run() {
     }
     if (err = rt_task_start(&th_move, (void(*)(void*)) & Tasks::MoveTask, this)) {
         cerr << "Error task monistart: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_Sbat, (void(*)(void*)) & Tasks::EnvoieBatterieTask, this)) {
+        cerr << "Error task recBat: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
 
@@ -245,6 +256,7 @@ void Tasks::SendToMonTask(void* arg) {
 void Tasks::ReceiveFromMonTask(void *arg) {
     Message *msgRcv;
     
+    
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
@@ -266,7 +278,9 @@ void Tasks::ReceiveFromMonTask(void *arg) {
             rt_sem_v(&sem_openComRobot);
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
             rt_sem_v(&sem_startRobot);
-        } else if (msgRcv->CompareID(MESSAGE_ROBOT_GO_FORWARD) ||
+        } else if (msgRcv->CompareID(MESSAGE_ROBOT_BATTERY_GET)) {
+            getbat=1;
+        }else if (msgRcv->CompareID(MESSAGE_ROBOT_GO_FORWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_BACKWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_LEFT) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_RIGHT) ||
@@ -417,22 +431,29 @@ Message *Tasks::ReadInQueue(RT_QUEUE *queue) {
 
 void Tasks::EnvoieBatterieTask(void *arg){
  MessageBattery * msg;
- 
+ int rs=0;
  
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
  
-    rt_task_set_periodic(NULL, TM_NOW, 100000000);
+    rt_task_set_periodic(NULL, TM_NOW, 50000000000);
     while(1){
        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
            rs = robotStarted;
        rt_mutex_release(&mutex_robotStarted);
 
        if(rs==1){
-           *msg = (MessageBattery*)robot.Write(new Message(MESSAGE_ROBOT_BATTERY_GET));
-           monitor.send(msg);
-          }
+           if(getbat==1){
+           rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+            msg = (MessageBattery*)robot.Write(new Message(MESSAGE_ROBOT_BATTERY_GET));
+           rt_mutex_release(&mutex_robot);
+
+            WriteInQueue(&q_messageToMon, msg);
+            
+           }
+           getbat=0;
+       }
        cout << endl << flush;
     }
 }
