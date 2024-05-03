@@ -106,6 +106,11 @@ void Tasks::Init() {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_sem_create(&sem_closeCamera, NULL, 0, S_FIFO)) {
+        cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     if (err = rt_sem_create(&sem_bat, NULL, 0, S_FIFO)) {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
@@ -144,10 +149,16 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     
-    if (err = rt_task_create(&th_openCamera, "th_camera", 0, PRIORITY_TCAMERA, 0)) {
+    if (err = rt_task_create(&th_openCamera, "th_openCamera", 0, PRIORITY_TCAMERA, 0)) {
         cerr << "Error task create: 0" << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    
+    if (err = rt_task_create(&th_closeCamera, "th_closeCamera", 0, PRIORITY_TCAMERA, 0)) {
+        cerr << "Error task create: 0" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     cout << "Tasks created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -450,7 +461,7 @@ Message *Tasks::ReadInQueue(RT_QUEUE *queue) {
         throw std::runtime_error{"Error in read in queue"};
     }/** else {
         cout << "@msg :" << msg << endl << flush;
-    } /**/
+    } **/
 
     return msg;
 }
@@ -502,10 +513,32 @@ void Tasks::OpenCameraTask(void *arg){
 
         Message * msgSend;
         if (status==true){
-            msgSend = new Message(MESSAGE_ANSWER_NACK);
-        } else {
             msgSend = new Message(MESSAGE_ANSWER_ACK);
+        } else {
+            msgSend = new Message(MESSAGE_ANSWER_NACK);
         }
         WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
+    }
+}
+
+
+void Tasks::CloseCameraTask(void *arg){
+
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    // Synchronization barrier (waiting that all tasks are starting)
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+         
+    while(1){     
+        rt_sem_p(&sem_closeCamera, TM_INFINITE);
+        cout << "Close camera (";
+        
+        rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+        cam->Close();
+        free(cam);
+        rt_mutex_release(&mutex_camera);
+        
+        cout << ")" << endl << flush;
+            
+        WriteInQueue(&q_messageToMon, new Message(MESSAGE_ANSWER_ACK)); // msgSend will be deleted by sendT
     }
 }

@@ -79,6 +79,7 @@ private:
     RT_TASK th_move;
     RT_TASK th_Sbat;
     RT_TASK th_openCamera;
+    RT_TASK th_closeCamera;
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -97,7 +98,9 @@ private:
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
     RT_SEM sem_openCamera;
+    RT_SEM sem_closeCamera;
     RT_SEM sem_bat;
+    
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -148,6 +151,12 @@ private:
      */
     
     void OpenCameraTask(void *arg);
+    
+    /**
+     * @brief envoie du niveau de batterie
+     */
+    
+    void CloseCameraTask(void *arg);
     
     /**
      * @param queue
