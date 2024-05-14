@@ -331,14 +331,19 @@ void Tasks::ReceiveFromMonTask(void *arg) {
         if (msgRcv->CompareID(MESSAGE_MONITOR_LOST)) {
             delete(msgRcv);
             exit(-1);
+            
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_COM_OPEN)) {
             rt_sem_v(&sem_openComRobot);
+            
         } else if (msgRcv->CompareID(MESSAGE_CAM_OPEN)) {
             rt_sem_v(&sem_openCamera);
+            
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
             rt_sem_v(&sem_startRobot);
+            
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_BATTERY_GET)) {
             rt_sem_v(&sem_bat);
+            
         }else if (msgRcv->CompareID(MESSAGE_ROBOT_GO_FORWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_BACKWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_LEFT) ||
@@ -498,13 +503,13 @@ void Tasks::EnvoieBatterieTask(void *arg){
                                       
     rt_task_set_periodic(NULL, TM_NOW, 500000000);
     while(1){
+       rt_sem_p(&sem_bat, TM_INFINITE);
         
        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
            rs = robotStarted;
        rt_mutex_release(&mutex_robotStarted);
 
        if(rs==1){
-           //rt_sem_p(&sem_bat, TM_INFINITE);
            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
            msg = (MessageBattery*)robot.Write(new Message(MESSAGE_ROBOT_BATTERY_GET));
            rt_mutex_release(&mutex_robot);
@@ -590,6 +595,7 @@ void Tasks::AcquireImageTask(void *arg){
     
     while(1){
         rt_task_wait_period(NULL);
+        
         rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
         co = isCam;
         rt_mutex_release(&mutex_isCam);
