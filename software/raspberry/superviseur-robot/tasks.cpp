@@ -503,7 +503,9 @@ void Tasks::EnvoieBatterieTask(void *arg){
                                       
     rt_task_set_periodic(NULL, TM_NOW, 500000000);
     while(1){
-       rt_sem_p(&sem_bat, TM_INFINITE);
+        rt_task_wait_period(NULL);
+        cout << "Battery is getting getted";
+        rt_sem_p(&sem_bat, TM_INFINITE);
         
        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
            rs = robotStarted;
