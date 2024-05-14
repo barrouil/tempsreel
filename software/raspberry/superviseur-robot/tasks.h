@@ -66,6 +66,7 @@ private:
     ComRobot robot;
     Camera * cam;
     int robotStarted = 0;
+    int isCam=0;
     int move = MESSAGE_ROBOT_STOP;
     
     /**********************************************************************/
@@ -80,6 +81,8 @@ private:
     RT_TASK th_Sbat;
     RT_TASK th_openCamera;
     RT_TASK th_closeCamera;
+    RT_TASK th_acquireImage;
+   
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -89,6 +92,7 @@ private:
     RT_MUTEX mutex_robotStarted;
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_camera;
+    RT_MUTEX mutex_isCam;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -100,7 +104,6 @@ private:
     RT_SEM sem_openCamera;
     RT_SEM sem_closeCamera;
     RT_SEM sem_bat;
-    
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -157,6 +160,13 @@ private:
      */
     
     void CloseCameraTask(void *arg);
+    
+    
+    /**
+     * @brief récupère les images
+     */
+    
+    void AcquireImageTask(void *arg);
     
     /**
      * @param queue
