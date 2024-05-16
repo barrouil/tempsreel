@@ -83,7 +83,7 @@ private:
     RT_TASK th_openCamera;
     RT_TASK th_closeCamera;
     RT_TASK th_acquireImage;
-    RT_TASK th_searchArene;
+    RT_TASK th_searchArena;
    
     
     /**********************************************************************/
@@ -177,7 +177,7 @@ private:
      * @brief calbiration de l'arène
      */
     
-    void SearchAreneTask(void *arg);
+    void SearchArenaTask(void *arg);
     
     /**
      * @param queue

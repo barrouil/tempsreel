@@ -185,7 +185,7 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     
-    if (err = rt_task_create(&th_searchArene, "th_searchArene", 0, PRIORITY_TSARENA, 0)) {
+    if (err = rt_task_create(&th_searchArena, "th_searchArena", 0, PRIORITY_TSARENA, 0)) {
         cerr << "Error task create: 0" << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -254,7 +254,7 @@ void Tasks::Run() {
         exit(EXIT_FAILURE);
     }
     
-    if (err = rt_task_start(&th_searchArene, (void(*)(void*)) & Tasks::SearchAreneTask, this)) {
+    if (err = rt_task_start(&th_searchArena, (void(*)(void*)) & Tasks::SearchArenaTask, this)) {
         cerr << "Error task AcquireImage: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -666,9 +666,10 @@ void Tasks::AcquireImageTask(void *arg){
     }
 }
 
-void Tasks::SearchAreneTask(void *arg){
+void Tasks::SearchArenaTask(void *arg){
     int co;
     Img * Capture;
+    Arena * Arene1;
     
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
@@ -687,7 +688,7 @@ void Tasks::SearchAreneTask(void *arg){
     rt_mutex_release(&mutex_isCam);
         
         if (co==1){
-            cout << "Acquire Arena (";
+            cout << "Search Arena (";
 
             rt_mutex_acquire(&mutex_camera, TM_INFINITE);
                 if (cam != nullptr){
@@ -696,6 +697,15 @@ void Tasks::SearchAreneTask(void *arg){
                     Capture = nullptr;
                 }
             rt_mutex_release(&mutex_camera);
+            
+            if (Capture != nullptr){
+                Arene1 = new Arena(Capture->SearchArena());
+                
+                if (Arene1->IsEmpty() != true) {
+                Capture->DrawArena(*Arene1);
+            }
+                
+            }
             
             MessageImg * msgSend;
             msgSend = new MessageImg(MESSAGE_CAM_IMAGE, Capture);
