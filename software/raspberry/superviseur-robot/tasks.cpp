@@ -27,6 +27,7 @@
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
+#define PRIORITY_TACQ 20
 #define PRIORITY_TSBAT 19
 
 /*
@@ -338,6 +339,9 @@ void Tasks::ReceiveFromMonTask(void *arg) {
         } else if (msgRcv->CompareID(MESSAGE_CAM_OPEN)) {
             rt_sem_v(&sem_openCamera);
             
+        } else if (msgRcv->CompareID(MESSAGE_CAM_CLOSE)) {
+            rt_sem_v(&sem_closeCamera);
+            
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
             rt_sem_v(&sem_startRobot);
             
@@ -495,32 +499,38 @@ Message *Tasks::ReadInQueue(RT_QUEUE *queue) {
 
 void Tasks::EnvoieBatterieTask(void *arg){
  MessageBattery * msg;
+ MessageBattery * bat;
  int rs=0;
  
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
-                                      
+    
     rt_task_set_periodic(NULL, TM_NOW, 500000000);
     while(1){
         rt_task_wait_period(NULL);
-        cout << "Battery is getting getted";
-        rt_sem_p(&sem_bat, TM_INFINITE);
         
+        rt_sem_p(&sem_bat, TM_INFINITE);
+        cout << "Battery is getting getted";
+
        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
-           rs = robotStarted;
+       rs = robotStarted;
        rt_mutex_release(&mutex_robotStarted);
 
        if(rs==1){
            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
            msg = (MessageBattery*)robot.Write(new Message(MESSAGE_ROBOT_BATTERY_GET));
            rt_mutex_release(&mutex_robot);
-
-            WriteInQueue(&q_messageToMon, msg);
+           
+           if (msg != nullptr){
+           WriteInQueue(&q_messageToMon, msg);
+           } else {
+               delete(msg);
+           }         
+           }
        }
        cout << endl << flush;
     }
-}
 
 void Tasks::OpenCameraTask(void *arg){
     bool status;
@@ -544,10 +554,12 @@ void Tasks::OpenCameraTask(void *arg){
         Message * msgSend;
         if (status==true){
             msgSend = new Message(MESSAGE_ANSWER_ACK);
+            
             rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
             isCam = 1;
             rt_mutex_release(&mutex_isCam);  
         } else {
+            
             msgSend = new Message(MESSAGE_ANSWER_NACK);
         }
         WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT       
@@ -564,11 +576,12 @@ void Tasks::CloseCameraTask(void *arg){
     while(1){        
         
         rt_sem_p(&sem_closeCamera, TM_INFINITE);
-        cout << "Close camera (";
-        
+
         rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
         isCam = 0;
         rt_mutex_release(&mutex_isCam);
+        
+        cout << "Close camera (";
         
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
         cam->Close();
@@ -587,7 +600,7 @@ void Tasks::CloseCameraTask(void *arg){
 void Tasks::AcquireImageTask(void *arg){
     int co;
     Img * Capture;
-    
+    MessageImg * msgSend;
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
@@ -607,19 +620,20 @@ void Tasks::AcquireImageTask(void *arg){
         cout << "Acquire started.." << endl << flush;
             
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+            if (cam != nullptr){
+            Capture = new Img(cam->Grab());
         
-        if (cam != nullptr){
-        Capture = new Img(cam->Grab());
-        
-        }else{
+            msgSend = new MessageImg(MESSAGE_CAM_IMAGE, Capture);
+            WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
+            
+            }else{
             Capture = nullptr;
-        }
-        
+            }
         rt_mutex_release(&mutex_camera);
         
-        MessageImg * msgSend;
-        msgSend = new MessageImg(MESSAGE_CAM_IMAGE,Capture);
-        WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
+        //if (Capture != nullptr){     
+            
+        //}
         
         } 
     }
