@@ -168,7 +168,7 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     
-    if (err = rt_task_create(&th_acquireImage, "th_acquireImage", 0, PRIORITY_TCAMERA, 0)) {
+    if (err = rt_task_create(&th_acquireImage, "th_acquireImage", 0, PRIORITY_TACQ, 0)) {
         cerr << "Error task create: 0" << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -544,8 +544,8 @@ void Tasks::OpenCameraTask(void *arg){
         cout << "Open camera (";
         
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
-        cam = new Camera(sm, 10);
-        status = cam->Open();
+            cam = new Camera(sm, 10);
+            status = cam->Open();
         rt_mutex_release(&mutex_camera);
         
         cout << status;
@@ -556,12 +556,13 @@ void Tasks::OpenCameraTask(void *arg){
             msgSend = new Message(MESSAGE_ANSWER_ACK);
             
             rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
-            isCam = 1;
+                isCam = 1;
             rt_mutex_release(&mutex_isCam);  
-        } else {
             
+        } else {
             msgSend = new Message(MESSAGE_ANSWER_NACK);
         }
+        
         WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT       
     }
 }
@@ -573,19 +574,17 @@ void Tasks::CloseCameraTask(void *arg){
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
          
-    while(1){        
-        
+    while(1){           
         rt_sem_p(&sem_closeCamera, TM_INFINITE);
-
-        rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
-        isCam = 0;
-        rt_mutex_release(&mutex_isCam);
-        
         cout << "Close camera (";
         
+        rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
+            isCam = 0;
+        rt_mutex_release(&mutex_isCam);
+          
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
-        cam->Close();
-        delete(cam);
+            cam->Close();
+            delete(cam);
         rt_mutex_release(&mutex_camera);
         
         cout << ")" << endl << flush;
@@ -600,41 +599,34 @@ void Tasks::CloseCameraTask(void *arg){
 void Tasks::AcquireImageTask(void *arg){
     int co;
     Img * Capture;
-    MessageImg * msgSend;
+      
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
-         
-                                       
-    rt_task_set_periodic(NULL, TM_NOW, 100000000);
-    
+                                      
+    rt_task_set_periodic(NULL, TM_NOW, 100000000);  
     while(1){
         rt_task_wait_period(NULL);
         
         rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
-        co = isCam;
+            co = isCam;
         rt_mutex_release(&mutex_isCam);
         
         if (co==1){
+            cout << "Acquire started (";
+
+            rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+                if (cam != nullptr){
+                    Capture = new Img(cam->Grab());
+                }else{
+                    Capture = nullptr;
+                }
+            rt_mutex_release(&mutex_camera);
             
-        cout << "Acquire started.." << endl << flush;
-            
-        rt_mutex_acquire(&mutex_camera, TM_INFINITE);
-            if (cam != nullptr){
-            Capture = new Img(cam->Grab());
-        
+            MessageImg * msgSend;
             msgSend = new MessageImg(MESSAGE_CAM_IMAGE, Capture);
             WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
-            
-            }else{
-            Capture = nullptr;
-            }
-        rt_mutex_release(&mutex_camera);
-        
-        //if (Capture != nullptr){     
-            
-        //}
-        
-        } 
+            cout << ")" << endl << flush;
+        }  
     }
 }
