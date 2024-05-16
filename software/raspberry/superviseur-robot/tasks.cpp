@@ -339,6 +339,7 @@ void Tasks::ReceiveFromMonTask(void *arg) {
         } else if (msgRcv->CompareID(MESSAGE_CAM_OPEN)) {
             rt_sem_v(&sem_openCamera);
             
+            
         } else if (msgRcv->CompareID(MESSAGE_CAM_CLOSE)) {
             rt_sem_v(&sem_closeCamera);
             
