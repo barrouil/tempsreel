@@ -67,6 +67,7 @@ private:
     Camera * cam;
     int robotStarted = 0;
     int isCam=0;
+    int isSearch=0;
     int move = MESSAGE_ROBOT_STOP;
     
     /**********************************************************************/
@@ -82,6 +83,7 @@ private:
     RT_TASK th_openCamera;
     RT_TASK th_closeCamera;
     RT_TASK th_acquireImage;
+    RT_TASK th_searchArene;
    
     
     /**********************************************************************/
@@ -93,6 +95,7 @@ private:
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_camera;
     RT_MUTEX mutex_isCam;
+    RT_MUTEX mutex_isSearch;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -104,6 +107,7 @@ private:
     RT_SEM sem_openCamera;
     RT_SEM sem_closeCamera;
     RT_SEM sem_bat;
+    RT_SEM sem_searchArena;
     
     /**********************************************************************/
     /* Message queues                                                     */
@@ -168,6 +172,12 @@ private:
      */
     
     void AcquireImageTask(void *arg);
+    
+    /**
+     * @brief calbiration de l'arène
+     */
+    
+    void SearchAreneTask(void *arg);
     
     /**
      * @param queue

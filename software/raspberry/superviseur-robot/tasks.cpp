@@ -26,9 +26,10 @@
 #define PRIORITY_TSENDTOMON 22
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
+#define PRIORITY_TSBAT 19
 #define PRIORITY_TCAMERA 21
 #define PRIORITY_TACQ 20
-#define PRIORITY_TSBAT 19
+#define PRIORITY_TSARENA 20
 
 /*
  * Some remarks:
@@ -88,6 +89,11 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     
+    if (err = rt_mutex_create(&mutex_isSearch, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     cout << "Mutexes created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -110,16 +116,22 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     
+    if (err = rt_sem_create(&sem_bat, NULL, 0, S_FIFO)) {
+        cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     if (err = rt_sem_create(&sem_openCamera, NULL, 0, S_FIFO)) {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    
     if (err = rt_sem_create(&sem_closeCamera, NULL, 0, S_FIFO)) {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
     
-    if (err = rt_sem_create(&sem_bat, NULL, 0, S_FIFO)) {
+     if (err = rt_sem_create(&sem_searchArena, NULL, 0, S_FIFO)) {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -169,6 +181,11 @@ void Tasks::Init() {
     }
     
     if (err = rt_task_create(&th_acquireImage, "th_acquireImage", 0, PRIORITY_TACQ, 0)) {
+        cerr << "Error task create: 0" << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
+    if (err = rt_task_create(&th_searchArene, "th_searchArene", 0, PRIORITY_TSARENA, 0)) {
         cerr << "Error task create: 0" << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -236,6 +253,12 @@ void Tasks::Run() {
         cerr << "Error task AcquireImage: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    
+    if (err = rt_task_start(&th_searchArene, (void(*)(void*)) & Tasks::SearchAreneTask, this)) {
+        cerr << "Error task AcquireImage: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
     
     cout << "Tasks launched" << endl << flush;
 }
@@ -332,23 +355,28 @@ void Tasks::ReceiveFromMonTask(void *arg) {
         if (msgRcv->CompareID(MESSAGE_MONITOR_LOST)) {
             delete(msgRcv);
             exit(-1);
-            
+        
+        } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
+            rt_sem_v(&sem_startRobot);
+        
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_COM_OPEN)) {
             rt_sem_v(&sem_openComRobot);
+        
+        } else if (msgRcv->CompareID(MESSAGE_ROBOT_BATTERY_GET)) {
+            rt_sem_v(&sem_bat);
             
         } else if (msgRcv->CompareID(MESSAGE_CAM_OPEN)) {
             rt_sem_v(&sem_openCamera);
             
-            
         } else if (msgRcv->CompareID(MESSAGE_CAM_CLOSE)) {
             rt_sem_v(&sem_closeCamera);
             
-        } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
-            rt_sem_v(&sem_startRobot);
-            
-        } else if (msgRcv->CompareID(MESSAGE_ROBOT_BATTERY_GET)) {
-            rt_sem_v(&sem_bat);
-            
+        } else if (msgRcv->CompareID(MESSAGE_CAM_ASK_ARENA)) {
+            rt_sem_v(&sem_searchArena);
+        
+        } else if (msgRcv->CompareID(MESSAGE_CAM_ARENA_INFIRM)) {
+            isSearch=0;
+ 
         }else if (msgRcv->CompareID(MESSAGE_ROBOT_GO_FORWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_BACKWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_LEFT) ||
@@ -598,7 +626,7 @@ void Tasks::CloseCameraTask(void *arg){
 
 
 void Tasks::AcquireImageTask(void *arg){
-    int co;
+    int co, sa;
     Img * Capture;
       
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
@@ -613,8 +641,53 @@ void Tasks::AcquireImageTask(void *arg){
             co = isCam;
         rt_mutex_release(&mutex_isCam);
         
+        rt_mutex_acquire(&mutex_isSearch, TM_INFINITE);
+            sa = isSearch;
+        rt_mutex_release(&mutex_isSearch);
+        
+        if (sa==0){
+            if (co==1){
+                cout << "Acquire started (";
+
+                rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+                    if (cam != nullptr){
+                        Capture = new Img(cam->Grab());
+                    }else{
+                        Capture = nullptr;
+                    }
+                rt_mutex_release(&mutex_camera);
+
+                MessageImg * msgSend;
+                msgSend = new MessageImg(MESSAGE_CAM_IMAGE, Capture);
+                WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
+                cout << ")" << endl << flush;
+            }  
+        }
+    }
+}
+
+void Tasks::SearchAreneTask(void *arg){
+    int co;
+    Img * Capture;
+    
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    // Synchronization barrier (waiting that all tasks are starting)
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+      
+    while(1){
+    
+    rt_sem_p(&sem_searchArena, TM_INFINITE);
+    
+    rt_mutex_acquire(&mutex_isSearch, TM_INFINITE);
+        isSearch=1;
+    rt_mutex_release(&mutex_isSearch);
+    
+    rt_mutex_acquire(&mutex_isCam, TM_INFINITE);
+        co = isCam;
+    rt_mutex_release(&mutex_isCam);
+        
         if (co==1){
-            cout << "Acquire started (";
+            cout << "Acquire Arena (";
 
             rt_mutex_acquire(&mutex_camera, TM_INFINITE);
                 if (cam != nullptr){
@@ -628,6 +701,8 @@ void Tasks::AcquireImageTask(void *arg){
             msgSend = new MessageImg(MESSAGE_CAM_IMAGE, Capture);
             WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
             cout << ")" << endl << flush;
-        }  
+        } 
     }
+    
 }
+    
