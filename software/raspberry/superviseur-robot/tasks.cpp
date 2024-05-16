@@ -702,14 +702,18 @@ void Tasks::SearchArenaTask(void *arg){
                 Arene1 = new Arena(Capture->SearchArena());
                 
                 if (Arene1->IsEmpty() != true) {
-                Capture->DrawArena(*Arene1);
-            }
-                
-            }
+                    
+                    Capture->DrawArena(*Arene1);
+                    MessageImg * msgSend;
+                    msgSend = new MessageImg(MESSAGE_CAM_IMAGE, Capture);
+                    WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
             
-            MessageImg * msgSend;
-            msgSend = new MessageImg(MESSAGE_CAM_IMAGE, Capture);
-            WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendT
+            }else{
+             cout << " Pas d'arène ";
+             WriteInQueue(&q_messageToMon, new Message(MESSAGE_ANSWER_NACK)); // msgSend will be deleted by sendT
+             
+            }
+            }
             cout << ")" << endl << flush;
         } 
     }
