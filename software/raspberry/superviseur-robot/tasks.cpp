@@ -667,7 +667,7 @@ void Tasks::AcquireImageTask(void *arg){
                     Capture = new Img(cam->Grab());
                     cout << "image grabbed";
                 }else{
-                    Capture = nullptr;
+                    delete Capture;
                 }
             rt_mutex_release(&mutex_camera);
             
