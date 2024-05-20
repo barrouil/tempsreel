@@ -65,13 +65,16 @@ private:
     ComMonitor monitor;
     ComRobot robot;
     Camera * cam;
+    Position * Position1;
     int robotStarted = 0;
     int isCam=0;
     int isSearch=0;
     int isArena=0;
+    int searchPosition=0;
     int move = MESSAGE_ROBOT_STOP;
     Arena * Arena1;
     int isWatchdog=0;
+    int isPosition=0;
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -87,7 +90,7 @@ private:
     RT_TASK th_closeCamera;
     RT_TASK th_acquireImage;
     RT_TASK th_searchArena;
-   
+    RT_TASK th_searchPosition;
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -102,6 +105,9 @@ private:
     RT_MUTEX mutex_arena;
     RT_MUTEX mutex_isArena;
     RT_MUTEX mutex_isWatchdog;
+    RT_MUTEX mutex_isPosition;
+    RT_MUTEX mutex_searchPosition;
+    RT_MUTEX mutex_position;
     /**********************************************************************/
     /* Semaphores                                                         */
     /**********************************************************************/
@@ -183,6 +189,12 @@ private:
      */
     
     void SearchArenaTask(void *arg);
+    
+    /**
+     * @brief compute la position
+     */
+    
+    void SearchPositionTask(void *arg);
     
     /**
      * @param queue
