@@ -68,7 +68,9 @@ private:
     int robotStarted = 0;
     int isCam=0;
     int isSearch=0;
+    int isArena=0;
     int move = MESSAGE_ROBOT_STOP;
+    Arena * Arena1;
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -96,6 +98,8 @@ private:
     RT_MUTEX mutex_camera;
     RT_MUTEX mutex_isCam;
     RT_MUTEX mutex_isSearch;
+    RT_MUTEX mutex_arena;
+    RT_MUTEX mutex_isArena;
 
     /**********************************************************************/
     /* Semaphores                                                         */
