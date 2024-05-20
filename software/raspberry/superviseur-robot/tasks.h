@@ -71,6 +71,7 @@ private:
     int isArena=0;
     int move = MESSAGE_ROBOT_STOP;
     Arena * Arena1;
+    int isWatchdog=0;
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -100,7 +101,7 @@ private:
     RT_MUTEX mutex_isSearch;
     RT_MUTEX mutex_arena;
     RT_MUTEX mutex_isArena;
-
+    RT_MUTEX mutex_isWatchdog;
     /**********************************************************************/
     /* Semaphores                                                         */
     /**********************************************************************/
